@@ -1,13 +1,15 @@
 package com.aibank.framework.sentinellimit.rule;
 
-import com.aibank.framework.sentinellimit.exception.SystemLoadFlowException;
+import com.aibank.framework.sentinellimit.domain.LimitData;
+import com.aibank.framework.sentinellimit.enums.LimitType;
+import com.aibank.framework.sentinellimit.enums.SystemLimitType;
+import com.aibank.framework.sentinellimit.exception.OverloadFlowException;
 import com.alibaba.csp.sentinel.Constants;
 import com.alibaba.csp.sentinel.EntryType;
 import com.alibaba.csp.sentinel.context.Context;
 import com.alibaba.csp.sentinel.node.DefaultNode;
 import com.alibaba.csp.sentinel.slotchain.ResourceWrapper;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
-import com.alibaba.csp.sentinel.slots.block.flow.FlowException;
 import com.alibaba.csp.sentinel.slots.block.flow.FlowRule;
 import com.alibaba.csp.sentinel.slots.block.flow.FlowRuleChecker;
 import com.alibaba.csp.sentinel.slots.system.SystemRuleManager;
@@ -17,70 +19,76 @@ import java.util.Collection;
 
 public class OverloadFlowRuleChecker extends FlowRuleChecker {
 
-    public void checkFlow(Function<String, Collection<FlowRule>> ruleProvider, ResourceWrapper resource,
-                          Context context, DefaultNode node, int count, boolean prioritized) throws BlockException {
+    public void checkFlow(Function<String, Collection<FlowRule>> ruleProvider, ResourceWrapper resource, Context context, DefaultNode node, int count, boolean prioritized) throws BlockException {
         if (ruleProvider == null || resource == null) {
             return;
         }
         Collection<FlowRule> rules = ruleProvider.apply(resource.getName());
         if (rules != null) {
             for (FlowRule rule : rules) {
-                if (!canPassCheck(resource, rule, context, node, count, prioritized)) {
-                    throw new SystemLoadFlowException(rule.getLimitApp(), rule);
+                LimitData limitData = canPassCheck(resource, rule, context, node, count, prioritized);
+                if (limitData != null) {
+                    throw new OverloadFlowException(rule.getLimitApp(), rule, limitData);
                 }
             }
         }
     }
 
-    public boolean canPassCheck(ResourceWrapper resource, FlowRule rule, Context context, DefaultNode node, int acquireCount, boolean prioritized) {
-        if (triggerSystemOverload(resource, acquireCount)) {
-            return super.canPassCheck(rule, context, node, acquireCount, prioritized);
+    public LimitData canPassCheck(ResourceWrapper resource, FlowRule rule, Context context, DefaultNode node, int acquireCount, boolean prioritized) {
+        LimitData limitData = triggerSystemOverload(resource, acquireCount);
+        if (limitData != null) {
+            boolean canPass = super.canPassCheck(rule, context, node, acquireCount, prioritized);
+            if (!canPass) {
+                return limitData;
+            }
         }
-        return true;
+        return null;
     }
 
-    public static boolean triggerSystemOverload(ResourceWrapper resourceWrapper, int count) {
+    public static LimitData triggerSystemOverload(ResourceWrapper resourceWrapper, int count) {
         if (resourceWrapper == null) {
-            return false;
+            return null;
         }
         // Ensure the checking switch is on.
         if (!GlobalOverloadConfig.isCheckSystemStatus()) {
-            return false;
+            return null;
         }
 
         // for inbound traffic only
         if (resourceWrapper.getEntryType() != EntryType.IN) {
-            return false;
+            return null;
         }
         // total qps
         double currentQps = Constants.ENTRY_NODE.passQps();
         if (currentQps + count > GlobalOverloadConfig.getMaxQps()) {
-            return true;
+            return new LimitData(LimitType.overloadFlowRule, SystemLimitType.qps, GlobalOverloadConfig.getMaxQps(), currentQps + count);
         }
 
         // total thread
         int currentThread = Constants.ENTRY_NODE.curThreadNum();
         if (currentThread > GlobalOverloadConfig.getMaxThread()) {
-            return true;
+            return new LimitData(LimitType.overloadFlowRule, SystemLimitType.thread, GlobalOverloadConfig.getMaxThread(), currentThread);
         }
 
         double rt = Constants.ENTRY_NODE.avgRt();
         if (rt > GlobalOverloadConfig.getMaxRt()) {
-            return true;
+            return new LimitData(LimitType.overloadFlowRule, SystemLimitType.rt, GlobalOverloadConfig.getMaxRt(), rt);
         }
 
         // load. BBR algorithm.
-        if (SystemRuleManager.getCurrentSystemAvgLoad() > GlobalOverloadConfig.getMaxSystemLoad()) {
+        double currentSystemAvgLoad = SystemRuleManager.getCurrentSystemAvgLoad();
+        if (currentSystemAvgLoad > GlobalOverloadConfig.getMaxSystemLoad()) {
             if (!checkBbr(currentThread)) {
-                return true;
+                return new LimitData(LimitType.overloadFlowRule, SystemLimitType.load, GlobalOverloadConfig.getMaxSystemLoad(), currentSystemAvgLoad);
             }
         }
 
         // cpu usage
-        if (SystemRuleManager.getCurrentCpuUsage() > GlobalOverloadConfig.getMaxCpuUsage()) {
-            return true;
+        double currentCpuUsage = SystemRuleManager.getCurrentCpuUsage();
+        if (currentCpuUsage > GlobalOverloadConfig.getMaxCpuUsage()) {
+            return new LimitData(LimitType.overloadFlowRule, SystemLimitType.cpu, GlobalOverloadConfig.getMaxCpuUsage(), currentCpuUsage);
         }
-        return false;
+        return null;
     }
 
     private static boolean checkBbr(int currentThread) {
