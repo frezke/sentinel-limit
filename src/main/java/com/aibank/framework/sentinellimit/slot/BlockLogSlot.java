@@ -1,5 +1,12 @@
 package com.aibank.framework.sentinellimit.slot;
 
+import com.aibank.framework.sentinellimit.dao.entity.BlockInfoEntity;
+import com.aibank.framework.sentinellimit.domain.LimitData;
+import com.aibank.framework.sentinellimit.enums.LimitType;
+import com.aibank.framework.sentinellimit.enums.SystemLimitType;
+import com.aibank.framework.sentinellimit.exception.OverloadFlowException;
+import com.aibank.framework.sentinellimit.rule.GlobalOverloadConfig;
+import com.aibank.framework.sentinellimit.service.DefaultBlockRequestInfoRecord;
 import com.alibaba.csp.sentinel.Constants;
 import com.alibaba.csp.sentinel.context.Context;
 import com.alibaba.csp.sentinel.log.RecordLog;
@@ -7,6 +14,10 @@ import com.alibaba.csp.sentinel.node.DefaultNode;
 import com.alibaba.csp.sentinel.slotchain.AbstractLinkedProcessorSlot;
 import com.alibaba.csp.sentinel.slotchain.ResourceWrapper;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
+import com.alibaba.csp.sentinel.slots.block.flow.FlowException;
+import com.alibaba.csp.sentinel.slots.block.flow.FlowRule;
+import com.alibaba.csp.sentinel.slots.system.SystemBlockException;
+import com.alibaba.csp.sentinel.slots.system.SystemRuleManager;
 import com.alibaba.csp.sentinel.spi.Spi;
 import com.alibaba.druid.pool.DruidDataSource;
 
@@ -18,9 +29,9 @@ public class BlockLogSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
 
     public static DataSource createDataSource() {
         DruidDataSource dataSource = new DruidDataSource();
-        dataSource.setUrl("jdbc:mysql://localhost:3306/sentinel");
+        dataSource.setUrl("jdbc:mysql://localhost:3306/sentinel?characterEncoding=utf8");
         dataSource.setUsername("root");
-        dataSource.setPassword("123456");
+        dataSource.setPassword("rootroot");
         dataSource.setDriverClassName("com.mysql.jdbc.Driver");
         dataSource.setInitialSize(5);
         dataSource.setMinIdle(5);
@@ -61,23 +72,61 @@ public class BlockLogSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
 //                    .append("metric: ").append(obj.metrics()).append("\n")
 //                    .append("totalQps: ").append(obj.totalQps()).append("\n")
 //                    .append("occupiedPassQps: ").append(obj.occupiedPassQps());
+            if (limitData.getLimitType().equals(LimitType.flowRule)) {
+                DataSource dataSource = createDataSource();
+                DefaultBlockRequestInfoRecord defaultBlockRequestInfoRecord = new DefaultBlockRequestInfoRecord(dataSource, "237000");
+                BlockInfoEntity blockInfoEntity = new BlockInfoEntity();
+                blockInfoEntity.setId(System.currentTimeMillis());
+                blockInfoEntity.setLimitType(limitData.getLimitType());
+                blockInfoEntity.setLimitConfigValue(limitData.getLimitConfigValue());
+                blockInfoEntity.setLimitValue(limitData.getLimitValue());
+                blockInfoEntity.setSentinelCause("通过正常限流规则检测规则不通过从而限流！当前限流值：" + limitData.getLimitConfigValue());
+                blockInfoEntity.setResource(resourceWrapper.getName());
+                blockInfoEntity.setTotalRequest(obj.totalRequest());
+                blockInfoEntity.setTotalPass(obj.totalPass());
+                blockInfoEntity.setTotalSuccess(obj.totalSuccess());
+                blockInfoEntity.setTotalQps(obj.totalQps());
+                blockInfoEntity.setPassQps(obj.passQps());
+                blockInfoEntity.setBlockQps(obj.blockQps());
 
-            DataSource dataSource = createDataSource();
-            DefaultBlockRequestInfoRecord defaultBlockRequestInfoRecord = new DefaultBlockRequestInfoRecord(dataSource, "237000");
-            BlockInfoEntity blockInfoEntity = new BlockInfoEntity();
-            blockInfoEntity.setId(System.currentTimeMillis());
-            blockInfoEntity.setResource(resourceWrapper.getName());
-            blockInfoEntity.setTotalRequest(obj.totalRequest());
-            blockInfoEntity.setTotalPass(obj.totalPass());
-            blockInfoEntity.setTotalSuccess(obj.totalSuccess());
-            blockInfoEntity.setTotalQps(obj.totalQps());
-            blockInfoEntity.setPassQps(obj.passQps());
-            blockInfoEntity.setBlockQps(obj.blockQps());
-            blockInfoEntity.setSuccessQps(obj.successQps());
-            blockInfoEntity.setCurTheadNum(obj.curThreadNum());
-            blockInfoEntity.setAvgRt(obj.avgRt());
-            blockInfoEntity.setCreateTime(new Date());
-            defaultBlockRequestInfoRecord.blockInfoRecord(blockInfoEntity);
+                defaultBlockRequestInfoRecord.blockInfoRecord(blockInfoEntity);
+
+            } else {
+                DataSource dataSource = createDataSource();
+                DefaultBlockRequestInfoRecord defaultBlockRequestInfoRecord = new DefaultBlockRequestInfoRecord(dataSource, "237000");
+                BlockInfoEntity blockInfoEntity = new BlockInfoEntity();
+                blockInfoEntity.setId(System.currentTimeMillis());
+                blockInfoEntity.setLimitType(limitData.getLimitType());
+                blockInfoEntity.setSystemLimitType(limitData.getSystemLimitType());
+                blockInfoEntity.setOverloadConfigValue(limitData.getOverloadConfigValue());
+                SystemLimitType systemLimitType = limitData.getSystemLimitType();
+                switch (systemLimitType) {
+                    case rt:
+                        blockInfoEntity.setSentinelCause("请求返回时间限流！当前限流值：" + limitData.getLimitConfigValue());
+                        blockInfoEntity.setRt(limitData.getOverloadValue());
+                        break;
+                    case qps:
+                        blockInfoEntity.setSentinelCause("系统qps限流！当前限流值：" + limitData.getLimitConfigValue());
+                        blockInfoEntity.setQps(limitData.getOverloadValue());
+                        break;
+                    case cpu:
+                        blockInfoEntity.setSentinelCause("系统cpu使用率限流！当前限流值：" + limitData.getLimitConfigValue());
+                        blockInfoEntity.setCpu(limitData.getOverloadValue());
+                        break;
+                    case load:
+                        blockInfoEntity.setSentinelCause("系统负载限流！当前限流值：" + limitData.getLimitConfigValue());
+                        blockInfoEntity.setLoad(limitData.getOverloadValue());
+                        break;
+                    case thread:
+                        blockInfoEntity.setSentinelCause("系统线程！当前限流值：" + limitData.getLimitConfigValue());
+                        blockInfoEntity.setThread(limitData.getOverloadValue());
+                        break;
+                }
+                defaultBlockRequestInfoRecord.blockInfoRecord(blockInfoEntity);
+            }
+
+//            OverloadFlowException  overloadFlowException = (OverloadFlowException)e;
+//            System.out.println(overloadFlowException.);
 
            // System.out.println(stringBuffer);
             throw e;
