@@ -1,5 +1,6 @@
 package com.aibank.framework.sentinellimit.slot;
 
+import cn.hutool.json.JSONUtil;
 import com.aibank.framework.sentinellimit.domain.LimitData;
 import com.aibank.framework.sentinellimit.domain.TransIdHolder;
 import com.aibank.framework.sentinellimit.enums.LimitType;
@@ -34,7 +35,7 @@ public class BlockLogSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
             LimitData limitData = getLimitData(e, resourceWrapper, obj, count);
             limitData.setTransId(TransIdHolder.getTransId());
             //打印日志
-           // RecordLog.warn("trigger limited : {}", limitData);
+//            RecordLog.warn(JSONUtil.createObj().set("trigger limited",limitData).toString());
 
             boolean offered = BLOCK_LOG_QUEUE.offer(limitData);
             if (!offered) {
