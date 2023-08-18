@@ -1,4 +1,4 @@
-package com.aibank.framework.sentinellimit.log;
+package com.aibank.framework.sentinellimit.task;
 
 import com.alibaba.csp.sentinel.Constants;
 import com.alibaba.csp.sentinel.log.RecordLog;
@@ -26,12 +26,12 @@ public class MetricPrintTask implements Runnable {
         if (!maps.isEmpty()) {
             for (Map.Entry<Long, List<MetricNode>> entry : maps.entrySet()) {
                 try {
-                    //TODO  打印到 业务日志文件
+                    //TODO  打印到 业务日志文件, 硬件数据
                     for (MetricNode metricNode : entry.getValue()) {
-                        System.out.println(metricNode.toFatString());
+                     //   RecordLog.warn(metricNode.toFatString());
                     }
                 } catch (Exception e) {
-                    RecordLog.warn("[MetricTimerListener] Write metric error", e);
+                   // RecordLog.warn("[MetricTimerListener] Write metric error", e);
                 }
             }
         }

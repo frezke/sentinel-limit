@@ -1,12 +1,10 @@
 package com.aibank.framework.sentinellimit.slot;
 
-import com.aibank.framework.sentinellimit.dao.entity.BlockInfoEntity;
 import com.aibank.framework.sentinellimit.domain.LimitData;
+import com.aibank.framework.sentinellimit.domain.TransIdHolder;
 import com.aibank.framework.sentinellimit.enums.LimitType;
 import com.aibank.framework.sentinellimit.enums.SystemLimitType;
 import com.aibank.framework.sentinellimit.exception.OverloadFlowException;
-import com.aibank.framework.sentinellimit.rule.GlobalOverloadConfig;
-import com.aibank.framework.sentinellimit.service.DefaultBlockRequestInfoRecord;
 import com.alibaba.csp.sentinel.Constants;
 import com.alibaba.csp.sentinel.context.Context;
 import com.alibaba.csp.sentinel.log.RecordLog;
@@ -19,34 +17,13 @@ import com.alibaba.csp.sentinel.slots.block.flow.FlowRule;
 import com.alibaba.csp.sentinel.slots.system.SystemBlockException;
 import com.alibaba.csp.sentinel.slots.system.SystemRuleManager;
 import com.alibaba.csp.sentinel.spi.Spi;
-import com.alibaba.druid.pool.DruidDataSource;
 
-import javax.sql.DataSource;
-import java.util.Date;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 
 @Spi(order = Constants.ORDER_LOG_SLOT)
 public class BlockLogSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
-
-    public static DataSource createDataSource() {
-        DruidDataSource dataSource = new DruidDataSource();
-        dataSource.setUrl("jdbc:mysql://localhost:3306/sentinel?characterEncoding=utf8");
-        dataSource.setUsername("root");
-        dataSource.setPassword("rootroot");
-        dataSource.setDriverClassName("com.mysql.jdbc.Driver");
-        dataSource.setInitialSize(5);
-        dataSource.setMinIdle(5);
-        dataSource.setMaxActive(20);
-        dataSource.setMaxWait(60000);
-        dataSource.setTimeBetweenEvictionRunsMillis(60000);
-        dataSource.setMinEvictableIdleTimeMillis(300000);
-        dataSource.setValidationQuery("SELECT 1 FROM DUAL");
-        dataSource.setTestWhileIdle(true);
-        dataSource.setTestOnBorrow(false);
-        dataSource.setTestOnReturn(false);
-        dataSource.setPoolPreparedStatements(true);
-        dataSource.setMaxPoolPreparedStatementPerConnectionSize(20);
-        return dataSource;
-    }
+    public static final BlockingQueue<LimitData> BLOCK_LOG_QUEUE = new ArrayBlockingQueue(10000);
 
     @Override
     public void entry(Context context, ResourceWrapper resourceWrapper, DefaultNode obj, int count, boolean prioritized, Object... args)
@@ -54,95 +31,39 @@ public class BlockLogSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
         try {
             fireEntry(context, resourceWrapper, obj, count, prioritized, args);
         } catch (BlockException e) {
-            LimitData limitData = getLimitData(e, obj, count);
-            // TODO  打印日志,入库
-//            StringBuffer stringBuffer = new StringBuffer();
-//            stringBuffer
-//                    .append("totalRequest: ").append(obj.totalRequest()).append("\n")
-//                    .append("totalPass: ").append(obj.totalPass()).append("\n")
-//                    .append("totalSuccess: ").append(obj.totalSuccess()).append("\n")
-//                    .append("totalException: ").append(obj.totalException()).append("\n")
-//                    .append("blockQps: ").append(obj.blockQps()).append("\n")
-//                    .append("passQps: ").append(obj.passQps()).append("\n")
-//                    .append("successQps: ").append(obj.successQps()).append("\n")
-//                    .append("exceptionQps: ").append(obj.exceptionQps()).append("\n")
-//                    .append("blockQps: ").append(obj.blockQps()).append("\n")
-//                    .append("rt: ").append(obj.avgRt()).append("\n")
-//                    .append("curTheadNum: ").append(obj.curThreadNum()).append("\n")
-//                    .append("metric: ").append(obj.metrics()).append("\n")
-//                    .append("totalQps: ").append(obj.totalQps()).append("\n")
-//                    .append("occupiedPassQps: ").append(obj.occupiedPassQps());
-            if (limitData.getLimitType().equals(LimitType.flowRule)) {
-                DataSource dataSource = createDataSource();
-                DefaultBlockRequestInfoRecord defaultBlockRequestInfoRecord = new DefaultBlockRequestInfoRecord(dataSource, "237000");
-                BlockInfoEntity blockInfoEntity = new BlockInfoEntity();
-                blockInfoEntity.setId(System.currentTimeMillis());
-                blockInfoEntity.setLimitType(limitData.getLimitType());
-                blockInfoEntity.setLimitConfigValue(limitData.getLimitConfigValue());
-                blockInfoEntity.setLimitValue(limitData.getLimitValue());
-                blockInfoEntity.setSentinelCause("通过正常限流规则检测规则不通过从而限流！当前限流值：" + limitData.getLimitConfigValue());
-                blockInfoEntity.setResource(resourceWrapper.getName());
-                blockInfoEntity.setTotalRequest(obj.totalRequest());
-                blockInfoEntity.setTotalPass(obj.totalPass());
-                blockInfoEntity.setTotalSuccess(obj.totalSuccess());
-                blockInfoEntity.setTotalQps(obj.totalQps());
-                blockInfoEntity.setPassQps(obj.passQps());
-                blockInfoEntity.setBlockQps(obj.blockQps());
+            LimitData limitData = getLimitData(e, resourceWrapper, obj, count);
+            limitData.setTransId(TransIdHolder.getTransId());
+            //打印日志
+           // RecordLog.warn("trigger limited : {}", limitData);
 
-                defaultBlockRequestInfoRecord.blockInfoRecord(blockInfoEntity);
-
-            } else {
-                DataSource dataSource = createDataSource();
-                DefaultBlockRequestInfoRecord defaultBlockRequestInfoRecord = new DefaultBlockRequestInfoRecord(dataSource, "237000");
-                BlockInfoEntity blockInfoEntity = new BlockInfoEntity();
-                blockInfoEntity.setId(System.currentTimeMillis());
-                blockInfoEntity.setLimitType(limitData.getLimitType());
-                blockInfoEntity.setSystemLimitType(limitData.getSystemLimitType());
-                blockInfoEntity.setOverloadConfigValue(limitData.getOverloadConfigValue());
-                SystemLimitType systemLimitType = limitData.getSystemLimitType();
-                switch (systemLimitType) {
-                    case rt:
-                        blockInfoEntity.setSentinelCause("请求返回时间限流！当前限流值：" + limitData.getLimitConfigValue());
-                        blockInfoEntity.setRt(limitData.getOverloadValue());
-                        break;
-                    case qps:
-                        blockInfoEntity.setSentinelCause("系统qps限流！当前限流值：" + limitData.getLimitConfigValue());
-                        blockInfoEntity.setQps(limitData.getOverloadValue());
-                        break;
-                    case cpu:
-                        blockInfoEntity.setSentinelCause("系统cpu使用率限流！当前限流值：" + limitData.getLimitConfigValue());
-                        blockInfoEntity.setCpu(limitData.getOverloadValue());
-                        break;
-                    case load:
-                        blockInfoEntity.setSentinelCause("系统负载限流！当前限流值：" + limitData.getLimitConfigValue());
-                        blockInfoEntity.setLoad(limitData.getOverloadValue());
-                        break;
-                    case thread:
-                        blockInfoEntity.setSentinelCause("系统线程！当前限流值：" + limitData.getLimitConfigValue());
-                        blockInfoEntity.setThread(limitData.getOverloadValue());
-                        break;
-                }
-                defaultBlockRequestInfoRecord.blockInfoRecord(blockInfoEntity);
+            boolean offered = BLOCK_LOG_QUEUE.offer(limitData);
+            if (!offered) {
+           //     RecordLog.warn("put block  error ,queue is full ");
             }
-
-//            OverloadFlowException  overloadFlowException = (OverloadFlowException)e;
-//            System.out.println(overloadFlowException.);
-
-           // System.out.println(stringBuffer);
             throw e;
         } catch (Throwable e) {
-            System.out.println(e.getStackTrace());
             RecordLog.warn("Unexpected entry exception", e);
+        }
+
+    }
+
+    @Override
+    public void exit(Context context, ResourceWrapper resourceWrapper, int count, Object... args) {
+        try {
+            fireExit(context, resourceWrapper, count, args);
+        } catch (Throwable e) {
+            RecordLog.warn("Unexpected entry exit exception", e);
         }
     }
 
-    private LimitData getLimitData(BlockException e, DefaultNode node, int count) {
+
+    private LimitData getLimitData(BlockException e, ResourceWrapper resourceWrapper, DefaultNode node, int count) {
         LimitData limitData = new LimitData();
         if (e instanceof FlowException) {
             FlowRule rule = (FlowRule) e.getRule();
             limitData.setLimitType(LimitType.flowRule);
-            //只考虑 qps,不考虑线程数
-            limitData.setLimitValue(node.passQps());
+            // TODO 只考虑 qps,不考虑线程数
+            limitData.setLimitValue(node.totalQps());
             limitData.setLimitConfigValue(rule.getCount());
         } else if (e instanceof SystemBlockException) {
             SystemBlockException systemBlockException = (SystemBlockException) e;
@@ -179,17 +100,24 @@ public class BlockLogSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
             limitData.setOverloadConfigValue(overloadConfigValue);
             limitData.setOverloadValue(overloadValue);
         } else if (e instanceof OverloadFlowException) {
+            FlowRule rule = (FlowRule) e.getRule();
             limitData = ((OverloadFlowException) e).getLimitData();
+            //只考虑 qps,不考虑线程数
+            limitData.setLimitValue(node.totalQps());
+            limitData.setLimitConfigValue(rule.getCount());
         }
+        limitData.setResource(resourceWrapper.getName());
+        limitData.setEntryType(resourceWrapper.getEntryType());
+        limitData.setTimestamp(System.currentTimeMillis());
+
+        limitData.setTotalPass(node.totalPass());
+        limitData.setTotalRequest(node.totalRequest());
+        limitData.setTotalBlock(node.blockRequest());
+
+        limitData.setTotalQps(node.totalQps());
+        limitData.setPassQps(node.passQps());
+        limitData.setBlockQps(node.blockQps());
         return limitData;
     }
 
-    @Override
-    public void exit(Context context, ResourceWrapper resourceWrapper, int count, Object... args) {
-        try {
-            fireExit(context, resourceWrapper, count, args);
-        } catch (Throwable e) {
-            RecordLog.warn("Unexpected entry exit exception", e);
-        }
-    }
 }

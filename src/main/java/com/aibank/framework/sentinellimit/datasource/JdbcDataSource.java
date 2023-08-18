@@ -16,22 +16,20 @@ import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 
-public class JdbcDataSource<T> extends AbstractDataSource<List<Entity>, T> {
+public class JdbcDataSource<E, T> extends AbstractDataSource<List<E>, T> {
     private static Logger logger = LoggerFactory.getLogger(JdbcDataSource.class);
     private static final ScheduledExecutorService service = Executors.newScheduledThreadPool(1, new NamedThreadFactory("sentinel-datasource-auto-refresh-task", true));
-    protected static long recommendRefreshMs = 5000;
+    protected static long recommendRefreshMs = 3000;
 
-    private String getAllSql;
-    private DataSource dataSource;
+    private Supplier<List<E>> supplier;
 
-
-    public JdbcDataSource(DataSource dataSource, String getAllSql, Converter<List<Entity>, T> parser) {
+    public JdbcDataSource(Supplier<List<E>> supplier, Converter<List<E>, T> parser) {
         super(parser);
-        AssertUtil.notNull(dataSource, "dataSource can not be empty");
-        this.getAllSql = getAllSql;
-        this.dataSource = dataSource;
+        this.supplier = supplier;
         loadInitialConfig();
         startTimerService();
     }
@@ -49,13 +47,8 @@ public class JdbcDataSource<T> extends AbstractDataSource<List<Entity>, T> {
     }
 
     @Override
-    public List<Entity> readSource() {
-        try {
-            List<Entity> query = Db.use(dataSource).query(getAllSql);
-            return query;
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
+    public List<E> readSource() {
+        return supplier.get();
     }
 
     protected boolean isModified() {
@@ -74,6 +67,7 @@ public class JdbcDataSource<T> extends AbstractDataSource<List<Entity>, T> {
                     }
                     T newValue = loadConfig();
                     getProperty().updateValue(newValue);
+
                 } catch (Throwable e) {
                     logger.info("loadConfig exception", e);
                 }

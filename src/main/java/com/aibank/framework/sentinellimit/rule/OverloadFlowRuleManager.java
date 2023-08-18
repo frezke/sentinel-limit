@@ -1,7 +1,7 @@
 
 package com.aibank.framework.sentinellimit.rule;
 
-import com.aibank.framework.sentinellimit.log.MetricPrintTask;
+import com.aibank.framework.sentinellimit.task.MetricPrintTask;
 import com.alibaba.csp.sentinel.concurrent.NamedThreadFactory;
 import com.alibaba.csp.sentinel.log.RecordLog;
 import com.alibaba.csp.sentinel.property.DynamicSentinelProperty;
@@ -27,17 +27,8 @@ public class OverloadFlowRuleManager {
     private static final FlowPropertyListener LISTENER = new FlowPropertyListener();
     private static SentinelProperty<List<FlowRule>> currentProperty = new DynamicSentinelProperty<List<FlowRule>>();
 
-    private static final ScheduledExecutorService SCHEDULER = Executors.newScheduledThreadPool(1,
-            new NamedThreadFactory("sentinel-metrics-record-task", true));
-
     static {
         currentProperty.addListener(LISTENER);
-        startMetricTimerListener();
-    }
-
-    private static void startMetricTimerListener() {
-        long flushInterval = 1;
-        SCHEDULER.scheduleAtFixedRate(new MetricPrintTask(), 0, flushInterval, TimeUnit.SECONDS);
     }
 
     public static void register2Property(SentinelProperty<List<FlowRule>> property) {

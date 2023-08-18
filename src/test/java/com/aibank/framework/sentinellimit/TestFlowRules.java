@@ -1,5 +1,6 @@
 package com.aibank.framework.sentinellimit;
 
+import cn.hutool.core.date.StopWatch;
 import cn.hutool.core.util.RandomUtil;
 import com.aibank.framework.sentinellimit.rule.GlobalOverloadConfig;
 import com.aibank.framework.sentinellimit.rule.OverloadFlowRuleManager;
@@ -7,11 +8,12 @@ import com.aibank.framework.sentinellimit.service.DefaultFlowLimitLoad;
 import com.alibaba.csp.sentinel.Entry;
 import com.alibaba.csp.sentinel.EntryType;
 import com.alibaba.csp.sentinel.SphU;
+import com.alibaba.csp.sentinel.concurrent.NamedThreadFactory;
 import com.alibaba.csp.sentinel.context.ContextUtil;
+import com.alibaba.csp.sentinel.node.SampleCountProperty;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
 import com.alibaba.csp.sentinel.slots.block.RuleConstant;
 import com.alibaba.csp.sentinel.slots.block.flow.FlowRule;
-import com.alibaba.csp.sentinel.slots.block.flow.FlowRuleManager;
 import com.alibaba.csp.sentinel.slots.system.SystemRule;
 import com.alibaba.csp.sentinel.slots.system.SystemRuleManager;
 import com.alibaba.druid.pool.DruidDataSource;
@@ -20,11 +22,10 @@ import org.junit.Test;
 import javax.sql.DataSource;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class TestFlowRules {
 
@@ -49,28 +50,43 @@ public class TestFlowRules {
         return dataSource;
     }
 
+    private AtomicLong cost = new AtomicLong(0);
+    private AtomicLong count = new AtomicLong(0);
+
     @Test
     public void testFlowRules() throws InterruptedException {
         DataSource dataSource = createDataSource();
         // initFlowRules();
         DefaultFlowLimitLoad flowLimitService = new DefaultFlowLimitLoad(dataSource, "237000");
         flowLimitService.init();
+        //  SampleCountProperty.SAMPLE_COUNT = 1;
 
-        ExecutorService executorService = Executors.newFixedThreadPool(10);
-        while (true) {
-            executorService.submit(() -> {
-                //  System.out.println("executorService : " + executorService.toString());
-                try {
-                    accessHelloWorld();
-                } catch (BlockException e) {
-                    throw new RuntimeException(e);
-                }
-            });
-            Thread.sleep(50);
+        //  ScheduledThreadPoolExecutor executorService = new ScheduledThreadPoolExecutor(50, new NamedThreadFactory("test-task", true));
+
+        for (int i = 0; i < 20; i++) {
+            new Thread(runnable).start();
         }
+        new CountDownLatch(1).await();
 
-        // FlowRuleManager.loadRules(new ArrayList<>());
     }
+
+    Runnable runnable = () -> {
+        while (true) {
+            StopWatch stopWatch = StopWatch.create("1");
+            stopWatch.start();
+            try {
+                accessHelloWorld();
+
+                stopWatch.stop();
+                //  System.out.println(" 调用耗时 " + (stopWatch.getTotalTimeMillis() - 1000l));
+                long l = cost.addAndGet(stopWatch.getTotalTimeMillis() - 1000) / count.incrementAndGet();
+             //   System.out.println(" 平均睡眠 " + l);
+            } catch (BlockException e) {
+                e.printStackTrace();
+                // throw new RuntimeException(e);
+            }
+        }
+    };
 
     @Test
     public void testSystemRules() throws InterruptedException {
@@ -152,19 +168,19 @@ public class TestFlowRules {
             entry = SphU.entry("HelloWorld", EntryType.IN);
 
             if (entry != null) {
-                System.out.println("acquire success");
+                System.out.println(new Date() + " acquire success");
                 try {
-                    TimeUnit.MILLISECONDS.sleep(RandomUtil.randomInt(1000));
+                    TimeUnit.MILLISECONDS.sleep(1000);
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
 
             } else {
-                System.out.println("acquire fail");
+                System.out.println(new Date() + " acquire fail null");
             }
 
         } catch (BlockException e) {
-            System.out.println("acquire fail");
+            System.out.println(new Date() + " acquire fail");
             throw e;
         } finally {
             if (entry != null) {

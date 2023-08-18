@@ -6,14 +6,13 @@ public class FlowRuleEntity {
     private String app;
     private String resource;
     private Integer controlBehavior;
+    private Boolean effectOnOverLoad;
     private Double count;
     private Integer grade;
     private String limitApp;
     private Integer strategy;
-
-    private Boolean effectOnOverLoad;
+    private int maxQueueingTimeMs;
     private Boolean open;
-
     private String createTime;
     private String updateTime;
     private String createdBy;
@@ -133,5 +132,13 @@ public class FlowRuleEntity {
 
     public void setUpdatedBy(String updatedBy) {
         this.updatedBy = updatedBy;
+    }
+
+    public int getMaxQueueingTimeMs() {
+        return maxQueueingTimeMs;
+    }
+
+    public void setMaxQueueingTimeMs(int maxQueueingTimeMs) {
+        this.maxQueueingTimeMs = maxQueueingTimeMs;
     }
 }

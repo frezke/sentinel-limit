@@ -1,6 +1,7 @@
 package com.aibank.framework.sentinellimit.rule;
 
 import com.aibank.framework.sentinellimit.domain.LimitData;
+import com.aibank.framework.sentinellimit.domain.TransIdHolder;
 import com.aibank.framework.sentinellimit.enums.LimitType;
 import com.aibank.framework.sentinellimit.enums.SystemLimitType;
 import com.aibank.framework.sentinellimit.exception.OverloadFlowException;
@@ -39,6 +40,7 @@ public class OverloadFlowRuleChecker extends FlowRuleChecker {
         if (limitData != null) {
             boolean canPass = super.canPassCheck(rule, context, node, acquireCount, prioritized);
             if (!canPass) {
+                limitData.setTransId(TransIdHolder.getTransId());
                 return limitData;
             }
         }
@@ -61,32 +63,32 @@ public class OverloadFlowRuleChecker extends FlowRuleChecker {
         // total qps
         double currentQps = Constants.ENTRY_NODE.passQps();
         if (currentQps + count > GlobalOverloadConfig.getMaxQps()) {
-            return new LimitData(LimitType.overloadFlowRule, SystemLimitType.qps, GlobalOverloadConfig.getMaxQps(), currentQps + count);
+            return new LimitData(resourceWrapper.getName(), LimitType.overloadFlowRule, SystemLimitType.qps, resourceWrapper.getEntryType(), GlobalOverloadConfig.getMaxQps(), currentQps + count);
         }
 
         // total thread
         int currentThread = Constants.ENTRY_NODE.curThreadNum();
         if (currentThread > GlobalOverloadConfig.getMaxThread()) {
-            return new LimitData(LimitType.overloadFlowRule, SystemLimitType.thread, GlobalOverloadConfig.getMaxThread(), currentThread);
+            return new LimitData(resourceWrapper.getName(), LimitType.overloadFlowRule, SystemLimitType.thread, resourceWrapper.getEntryType(), GlobalOverloadConfig.getMaxThread(), currentThread);
         }
 
         double rt = Constants.ENTRY_NODE.avgRt();
         if (rt > GlobalOverloadConfig.getMaxRt()) {
-            return new LimitData(LimitType.overloadFlowRule, SystemLimitType.rt, GlobalOverloadConfig.getMaxRt(), rt);
+            return new LimitData(resourceWrapper.getName(), LimitType.overloadFlowRule, SystemLimitType.rt, resourceWrapper.getEntryType(), GlobalOverloadConfig.getMaxRt(), rt);
         }
 
         // load. BBR algorithm.
         double currentSystemAvgLoad = SystemRuleManager.getCurrentSystemAvgLoad();
         if (currentSystemAvgLoad > GlobalOverloadConfig.getMaxSystemLoad()) {
             if (!checkBbr(currentThread)) {
-                return new LimitData(LimitType.overloadFlowRule, SystemLimitType.load, GlobalOverloadConfig.getMaxSystemLoad(), currentSystemAvgLoad);
+                return new LimitData(resourceWrapper.getName(), LimitType.overloadFlowRule, SystemLimitType.load, resourceWrapper.getEntryType(), GlobalOverloadConfig.getMaxSystemLoad(), currentSystemAvgLoad);
             }
         }
 
         // cpu usage
         double currentCpuUsage = SystemRuleManager.getCurrentCpuUsage();
         if (currentCpuUsage > GlobalOverloadConfig.getMaxCpuUsage()) {
-            return new LimitData(LimitType.overloadFlowRule, SystemLimitType.cpu, GlobalOverloadConfig.getMaxCpuUsage(), currentCpuUsage);
+            return new LimitData(resourceWrapper.getName(), LimitType.overloadFlowRule, SystemLimitType.cpu, resourceWrapper.getEntryType(), GlobalOverloadConfig.getMaxCpuUsage(), currentCpuUsage);
         }
         return null;
     }

@@ -1,248 +1,315 @@
 package com.aibank.framework.sentinellimit.dao.entity;
 
-import com.aibank.framework.sentinellimit.enums.LimitType;
-import com.aibank.framework.sentinellimit.enums.SystemLimitType;
-
 import java.util.Date;
 
-/*create table `block_info` (
-        `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '阻塞信息id',
-        `app` varchar(50) DEFAULT NULL COMMENT '系统编码',
-        `resource` varchar(255) DEFAULT NULL COMMENT '资源名称',
-        `totalRequest` bigint(20) DEFAULT NULL COMMENT '最近1分钟内的请求数',
-        `totalPass` bigint(20) DEFAULT NULL COMMENT '最近1分钟内通过规则检测的请求数',
-        `totalSuccess` bigint(20) DEFAULT NULL COMMENT '最近1分钟内通过规则检测完成调用并返回的请求数量',
-        `totalQps` bigint(20) DEFAULT NULL COMMENT '每秒/此刻的请求数，包括（blockQps与passQps）',
-        `passQps` bigint(20) DEFAULT NULL COMMENT '每秒/此刻通过规则检测的请求数量',
-        `blockQps` bigint(20) DEFAULT NULL COMMENT '每秒/此刻该资源被拦截的数量',
-        `successQps` bigint(20) DEFAULT NULL COMMENT '每秒/此刻通过规则检测完成调用并返回的请求数量',
-        `curTheadNum` bigint(20) DEFAULT NULL COMMENT '此刻线程数量',
-        `avgRt` bigint(20) DEFAULT NULL COMMENT '平均响应时间',
-        `createTime` timestamp DEFAULT NULL COMMENT '每创建时间',
-        PRIMARY KEY (`id`),
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Sentinel限流信息表'
-*/
+
+// create table block_info ddl
+/*
+          CREATE TABLE `block_info` (
+            `id` bigint(20) NOT NULL AUTO_INCREMENT,
+            `timestamp` bigint(20) DEFAULT NULL COMMENT '时间戳',
+            `time` datetime DEFAULT NULL COMMENT '时间',
+            `trans_id` varchar(255) DEFAULT NULL COMMENT '请求 id',
+            `app` varchar(255) DEFAULT NULL COMMENT '系统编码',
+            `resource` varchar(255) DEFAULT NULL COMMENT '资源名称',
+            `entry_type` varchar(255) DEFAULT NULL COMMENT '入口类型',
+            `limit_type` varchar(255) DEFAULT NULL COMMENT '限流类型',
+            `system_limit_type` varchar(255) DEFAULT NULL COMMENT '系统限流类型',
+            `overload_config_value` double DEFAULT NULL COMMENT '系统负荷配置值',
+            `overload_value` double DEFAULT NULL COMMENT '系统负荷当前值',
+            `limit_config_value` double DEFAULT NULL COMMENT '限流配置值',
+            `limit_value` double DEFAULT NULL COMMENT '限流当前值',
+            `total_qps` double DEFAULT NULL COMMENT '每秒请求数，包括（blockQps与passQps）',
+            `pass_qps` double DEFAULT NULL COMMENT '每秒通过的请求数量',
+            `block_qps` double DEFAULT NULL COMMENT '每秒被拦截的请求数量',
+            `total_request` bigint(20) DEFAULT NULL COMMENT '最近1分钟内的请求数',
+            `total_pass` bigint(20) DEFAULT NULL COMMENT '最近1分钟内通过的请求数量',
+            `total_block` bigint(20) DEFAULT NULL COMMENT '最近1分钟内被拦截的请求数量',
+            `create_time` datetime DEFAULT NULL COMMENT '创建时间',
+            `update_time` datetime DEFAULT NULL COMMENT '更新时间',
+            `created_by` varchar(255) DEFAULT NULL COMMENT '创建人',
+            `updated_by` varchar(255) DEFAULT NULL COMMENT '更新人',
+            PRIMARY KEY (`id`)
+            ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COMMENT='限流信息表';
+    */
+
 
 public class BlockInfoEntity {
-    private Long id;    //阻塞信息id
-    private String app;    //系统编码
-    private LimitType limitType;    //限流类型，正常限流/系统限流
-    private Double limitConfigValue;    //正常限流配置值
-    private Double limitValue;    //当前限流值
-    private SystemLimitType systemLimitType;    //系统限流类型，qps/thread/rt/load/cpu
-    private Double overloadConfigValue;    //系统负荷配置值
-    private String sentinelCause;    //限流原因
-//正常限流监控指标
-    private String resource;    //资源名称
-    private Long totalRequest;    //最近1分钟内的请求数
-    private Long totalPass;    //最近1分钟内通过规则检测的请求数
-    private Long totalSuccess;    //最近1分钟内通过规则检测完成调用并返回的请求数量
 
-    private Double totalQps;    //每秒/此刻的请求数，包括（blockQps与passQps）
-    private Double passQps;    //每秒/此刻通过规则检测的请求数量
-    private Double blockQps;    //每秒/此刻该资源被拦截的数量
-
-//系统限流监控指标
-    private Double qps;    //系统qps
-    private Double thread;    //系统所占用线程数
-    private Double rt;    //系统请求返回时间
-    private Double load;    //系统负载
-    private Double cpu;    //系统cpu使用率
+    /**
+     * id
+     */
+    private Long id;
 
 
-//    private Date createTime;    //创建时间
+    private Long timestamp;
+
+    private Date time;
+
+    /**
+     * 请求 id
+     */
+    private String transId;
+
+    /**
+     * 系统编码
+     */
+    private String app;
+
+    /**
+     * 资源名称
+     */
+    private String resource;
+
+    private String entryType;
+    /**
+     * 限流类型
+     */
+    private String limitType;
+
+    /**
+     * 系统限流类型
+     */
+    private String systemLimitType;
+
+    /**
+     * 系统负荷配置值
+     */
+    private Double overloadConfigValue;
+
+    /**
+     * 系统负荷当前值
+     */
+    private Double overloadValue;
 
 
-//    private Double successQps;    //每秒/此刻通过规则检测完成调用并返回的请求数量
-//    private Double exceptionQps;    //每秒/此刻异常的数量（不包括被拦截时所产生的异常）
-//    private Double occupiedPassQps;    //每秒/此刻占用未来请求的数目
+    /**
+     * 限流配置值
+     */
+    private Double limitConfigValue;
 
-    public BlockInfoEntity() {
+    /**
+     * 限流当前值
+     */
+    private Double limitValue;
+
+    /**
+     * 每秒请求数，包括（blockQps与passQps）
+     */
+    private Double totalQps;
+
+    /**
+     * 每秒通过的请求数量
+     */
+    private Double passQps;
+
+    /**
+     * 每秒被拦截的请求数量
+     */
+    private Double blockQps;
+
+    /**
+     * 最近1分钟内的请求数
+     */
+    private Long totalRequest;
+
+    /**
+     * 最近1分钟内通过的请求数量
+     */
+    private Long totalPass;
+
+    /**
+     * 最近1分钟内被拦截的请求数量
+     */
+    private Long totalBlock;
+
+
+    private String createTime;
+    private String updateTime;
+    private String createdBy;
+    private String updatedBy;
+
+    public Long getId() {
+        return id;
     }
 
     public void setId(Long id) {
         this.id = id;
     }
 
-    public void setApp(String app) {
-        this.app = app;
+    public Long getTimestamp() {
+        return timestamp;
     }
 
-    public void setLimitType(LimitType limitType) {
-        this.limitType = limitType;
+    public void setTimestamp(Long timestamp) {
+        this.timestamp = timestamp;
     }
 
-    public void setLimitConfigValue(Double limitConfigValue) {
-        this.limitConfigValue = limitConfigValue;
+    public String getTransId() {
+        return transId;
     }
 
-    public void setLimitValue(Double limitValue) {
-        this.limitValue = limitValue;
-    }
-
-    public void setSystemLimitType(SystemLimitType systemLimitType) {
-        this.systemLimitType = systemLimitType;
-    }
-
-    public void setOverloadConfigValue(Double overloadConfigValue) {
-        this.overloadConfigValue = overloadConfigValue;
-    }
-
-    public void setSentinelCause(String sentinelCause) {
-        this.sentinelCause = sentinelCause;
-    }
-
-    public void setResource(String resource) {
-        this.resource = resource;
-    }
-
-    public void setTotalRequest(Long totalRequest) {
-        this.totalRequest = totalRequest;
-    }
-
-    public void setTotalPass(Long totalPass) {
-        this.totalPass = totalPass;
-    }
-
-    public void setTotalSuccess(Long totalSuccess) {
-        this.totalSuccess = totalSuccess;
-    }
-
-    public void setTotalQps(Double totalQps) {
-        this.totalQps = totalQps;
-    }
-
-    public void setPassQps(Double passQps) {
-        this.passQps = passQps;
-    }
-
-    public void setBlockQps(Double blockQps) {
-        this.blockQps = blockQps;
-    }
-
-    public void setQps(Double qps) {
-        this.qps = qps;
-    }
-
-    public void setThread(Double thread) {
-        this.thread = thread;
-    }
-
-    public void setRt(Double rt) {
-        this.rt = rt;
-    }
-
-    public void setLoad(Double load) {
-        this.load = load;
-    }
-
-    public void setCpu(Double cpu) {
-        this.cpu = cpu;
-    }
-
-    public Long getId() {
-        return id;
+    public void setTransId(String transId) {
+        this.transId = transId;
     }
 
     public String getApp() {
         return app;
     }
 
-    public LimitType getLimitType() {
-        return limitType;
-    }
-
-    public Double getLimitConfigValue() {
-        return limitConfigValue;
-    }
-
-    public Double getLimitValue() {
-        return limitValue;
-    }
-
-    public SystemLimitType getSystemLimitType() {
-        return systemLimitType;
-    }
-
-    public Double getOverloadConfigValue() {
-        return overloadConfigValue;
-    }
-
-    public String getSentinelCause() {
-        return sentinelCause;
+    public void setApp(String app) {
+        this.app = app;
     }
 
     public String getResource() {
         return resource;
     }
 
-    public Long getTotalRequest() {
-        return totalRequest;
+    public void setResource(String resource) {
+        this.resource = resource;
     }
 
-    public Long getTotalPass() {
-        return totalPass;
+    public String getEntryType() {
+        return entryType;
     }
 
-    public Long getTotalSuccess() {
-        return totalSuccess;
+    public void setEntryType(String entryType) {
+        this.entryType = entryType;
+    }
+
+    public String getLimitType() {
+        return limitType;
+    }
+
+    public void setLimitType(String limitType) {
+        this.limitType = limitType;
+    }
+
+    public String getSystemLimitType() {
+        return systemLimitType;
+    }
+
+    public void setSystemLimitType(String systemLimitType) {
+        this.systemLimitType = systemLimitType;
+    }
+
+    public Double getOverloadConfigValue() {
+        return overloadConfigValue;
+    }
+
+    public void setOverloadConfigValue(Double overloadConfigValue) {
+        this.overloadConfigValue = overloadConfigValue;
+    }
+
+    public Double getOverloadValue() {
+        return overloadValue;
+    }
+
+    public void setOverloadValue(Double overloadValue) {
+        this.overloadValue = overloadValue;
+    }
+
+    public Double getLimitConfigValue() {
+        return limitConfigValue;
+    }
+
+    public void setLimitConfigValue(Double limitConfigValue) {
+        this.limitConfigValue = limitConfigValue;
+    }
+
+    public Double getLimitValue() {
+        return limitValue;
+    }
+
+    public void setLimitValue(Double limitValue) {
+        this.limitValue = limitValue;
     }
 
     public Double getTotalQps() {
         return totalQps;
     }
 
+    public void setTotalQps(Double totalQps) {
+        this.totalQps = totalQps;
+    }
+
     public Double getPassQps() {
         return passQps;
+    }
+
+    public void setPassQps(Double passQps) {
+        this.passQps = passQps;
     }
 
     public Double getBlockQps() {
         return blockQps;
     }
 
-    public Double getQps() {
-        return qps;
+    public void setBlockQps(Double blockQps) {
+        this.blockQps = blockQps;
     }
 
-    public Double getThread() {
-        return thread;
+    public Long getTotalRequest() {
+        return totalRequest;
     }
 
-    public Double getRt() {
-        return rt;
+    public void setTotalRequest(Long totalRequest) {
+        this.totalRequest = totalRequest;
     }
 
-    public Double getLoad() {
-        return load;
+    public Long getTotalPass() {
+        return totalPass;
     }
 
-    public Double getCpu() {
-        return cpu;
+    public void setTotalPass(Long totalPass) {
+        this.totalPass = totalPass;
     }
 
-    @Override
-    public String toString() {
-        return "BlockInfoEntity{" +
-                "id=" + id +
-                ", app='" + app + '\'' +
-                ", limitType=" + limitType +
-                ", limitConfigValue=" + limitConfigValue +
-                ", limitValue=" + limitValue +
-                ", systemLimitType=" + systemLimitType +
-                ", overloadConfigValue=" + overloadConfigValue +
-                ", sentinelCause='" + sentinelCause + '\'' +
-                ", resource='" + resource + '\'' +
-                ", totalRequest=" + totalRequest +
-                ", totalPass=" + totalPass +
-                ", totalSuccess=" + totalSuccess +
-                ", totalQps=" + totalQps +
-                ", passQps=" + passQps +
-                ", blockQps=" + blockQps +
-                ", qps=" + qps +
-                ", thread=" + thread +
-                ", rt=" + rt +
-                ", load=" + load +
-                ", cpu=" + cpu +
-                '}';
+    public Long getTotalBlock() {
+        return totalBlock;
+    }
+
+    public void setTotalBlock(Long totalBlock) {
+        this.totalBlock = totalBlock;
+    }
+
+    public String getCreateTime() {
+        return createTime;
+    }
+
+    public void setCreateTime(String createTime) {
+        this.createTime = createTime;
+    }
+
+    public String getUpdateTime() {
+        return updateTime;
+    }
+
+    public void setUpdateTime(String updateTime) {
+        this.updateTime = updateTime;
+    }
+
+    public String getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(String createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public String getUpdatedBy() {
+        return updatedBy;
+    }
+
+    public void setUpdatedBy(String updatedBy) {
+        this.updatedBy = updatedBy;
+    }
+
+    public Date getTime() {
+        return time;
+    }
+
+    public void setTime(Date time) {
+        this.time = time;
     }
 }
