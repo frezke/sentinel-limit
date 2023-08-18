@@ -1,92 +1,25 @@
 package com.aibank.framework.sentinellimit;
 
-import cn.hutool.core.date.StopWatch;
-import cn.hutool.core.util.RandomUtil;
 import com.aibank.framework.sentinellimit.rule.GlobalOverloadConfig;
 import com.aibank.framework.sentinellimit.rule.OverloadFlowRuleManager;
-import com.aibank.framework.sentinellimit.service.DefaultFlowLimitLoad;
 import com.alibaba.csp.sentinel.Entry;
 import com.alibaba.csp.sentinel.EntryType;
 import com.alibaba.csp.sentinel.SphU;
-import com.alibaba.csp.sentinel.concurrent.NamedThreadFactory;
 import com.alibaba.csp.sentinel.context.ContextUtil;
-import com.alibaba.csp.sentinel.node.SampleCountProperty;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
 import com.alibaba.csp.sentinel.slots.block.RuleConstant;
 import com.alibaba.csp.sentinel.slots.block.flow.FlowRule;
 import com.alibaba.csp.sentinel.slots.system.SystemRule;
 import com.alibaba.csp.sentinel.slots.system.SystemRuleManager;
-import com.alibaba.druid.pool.DruidDataSource;
 import org.junit.Test;
 
-import javax.sql.DataSource;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicLong;
 
-public class TestFlowRules {
-
-    public static DataSource createDataSource() {
-        DruidDataSource dataSource = new DruidDataSource();
-        dataSource.setUrl("jdbc:mysql://localhost:3306/sentinel");
-        dataSource.setUsername("root");
-        dataSource.setPassword("rootroot");
-        dataSource.setDriverClassName("com.mysql.jdbc.Driver");
-        dataSource.setInitialSize(5);
-        dataSource.setMinIdle(5);
-        dataSource.setMaxActive(20);
-        dataSource.setMaxWait(60000);
-        dataSource.setTimeBetweenEvictionRunsMillis(60000);
-        dataSource.setMinEvictableIdleTimeMillis(300000);
-        dataSource.setValidationQuery("SELECT 1 FROM DUAL");
-        dataSource.setTestWhileIdle(true);
-        dataSource.setTestOnBorrow(false);
-        dataSource.setTestOnReturn(false);
-        dataSource.setPoolPreparedStatements(true);
-        dataSource.setMaxPoolPreparedStatementPerConnectionSize(20);
-        return dataSource;
-    }
-
-    private AtomicLong cost = new AtomicLong(0);
-    private AtomicLong count = new AtomicLong(0);
-
-    @Test
-    public void testFlowRules() throws InterruptedException {
-        DataSource dataSource = createDataSource();
-        // initFlowRules();
-        DefaultFlowLimitLoad flowLimitService = new DefaultFlowLimitLoad(dataSource, "237000");
-        flowLimitService.init();
-        //  SampleCountProperty.SAMPLE_COUNT = 1;
-
-        //  ScheduledThreadPoolExecutor executorService = new ScheduledThreadPoolExecutor(50, new NamedThreadFactory("test-task", true));
-
-        for (int i = 0; i < 20; i++) {
-            new Thread(runnable).start();
-        }
-        new CountDownLatch(1).await();
-
-    }
-
-    Runnable runnable = () -> {
-        while (true) {
-            StopWatch stopWatch = StopWatch.create("1");
-            stopWatch.start();
-            try {
-                accessHelloWorld();
-
-                stopWatch.stop();
-                //  System.out.println(" 调用耗时 " + (stopWatch.getTotalTimeMillis() - 1000l));
-                long l = cost.addAndGet(stopWatch.getTotalTimeMillis() - 1000) / count.incrementAndGet();
-             //   System.out.println(" 平均睡眠 " + l);
-            } catch (BlockException e) {
-                e.printStackTrace();
-                // throw new RuntimeException(e);
-            }
-        }
-    };
+public class FlowRulesTest {
 
     @Test
     public void testSystemRules() throws InterruptedException {
@@ -104,6 +37,7 @@ public class TestFlowRules {
     }
 
 
+    @Test
     public void loadSystemOverloadConfig() {
         SystemRule systemRule = new SystemRule();
 
