@@ -1,6 +1,5 @@
 package com.aibank.framework.sentinellimit.task;
 
-import cn.hutool.json.JSONUtil;
 import com.alibaba.csp.sentinel.Constants;
 import com.alibaba.csp.sentinel.log.RecordLog;
 import com.alibaba.csp.sentinel.node.ClusterNode;
@@ -32,24 +31,23 @@ public class MetricPrintTask implements Runnable {
                 try {
                     //TODO  打印到 业务日志文件, 硬件数据
                     for (MetricNode metricNode : entry.getValue()) {
-                     //   RecordLog.warn(metricNode.toFatString());
-                        HashMap<String, Object> metricLog = new HashMap<>();
-                        metricLog.put("timestamp", metricNode.getTimestamp());
-                        metricLog.put("date", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(metricNode.getTimestamp())));
-                        metricLog.put("resource",metricNode.getResource());
-                        metricLog.put("passQps",metricNode.getPassQps());
-                        metricLog.put("blockQps",metricNode.getBlockQps());
-                        metricLog.put("successQps",metricNode.getSuccessQps());
-                        metricLog.put("exceptionQps",metricNode.getExceptionQps());
-                        metricLog.put("Rt",metricNode.getRt());
-                        metricLog.put("OccupiedPassQps", metricNode.getOccupiedPassQps());
-                        metricLog.put( "concurrency",metricNode.getConcurrency());
-                        metricLog.put("classification",metricNode.getClassification());
-                        metricLog.put("currentCpuUsage",SystemRuleManager.getCurrentCpuUsage());
-                        metricLog.put("cpuUsageThreshold",SystemRuleManager.getCpuUsageThreshold());
-                        metricLog.put("currentSystemAvgLoad",SystemRuleManager.getCurrentSystemAvgLoad());
-                        metricLog.put("inboundQpsThreshold",SystemRuleManager.getInboundQpsThreshold());
-//                        RecordLog.warn(JSONUtil.createObj().set("metricLog",metricLog).toString());
+                        StringBuilder metricLog = new StringBuilder(32);
+                        metricLog.append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(metricNode.getTimestamp()))).append("|");
+                        metricLog.append(metricNode.getResource()).append("|");
+                        metricLog.append(metricNode.getPassQps()).append("|");
+                        metricLog.append(metricNode.getBlockQps()).append("|");
+                        metricLog.append(metricNode.getSuccessQps()).append("|");
+                        metricLog.append(metricNode.getRt()).append("|");
+                        metricLog.append(Constants.ENTRY_NODE.passQps()).append("|");
+                        metricLog.append(Constants.ENTRY_NODE.curThreadNum()).append("|");
+                        metricLog.append(Constants.ENTRY_NODE.avgRt()).append("|");
+                        metricLog.append(SystemRuleManager.getCurrentSystemAvgLoad()).append("|");
+                        metricLog.append(SystemRuleManager.getCurrentCpuUsage()).append("|");
+                        metricLog.append(metricNode.getExceptionQps()).append("|");
+                        metricLog.append(metricNode.getOccupiedPassQps()).append("|");
+                        metricLog.append(metricNode.getConcurrency()).append("|");
+                        metricLog.append(metricNode.getClassification()).append("|");
+                        RecordLog.warn(metricLog.toString());
                     }
                 } catch (Exception e) {
                    // RecordLog.warn("[MetricTimerListener] Write metric error", e);

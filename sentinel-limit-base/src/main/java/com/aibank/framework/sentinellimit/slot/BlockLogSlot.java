@@ -1,5 +1,6 @@
 package com.aibank.framework.sentinellimit.slot;
 
+import com.aibank.framework.sentinellimit.domain.LimitConstants;
 import com.aibank.framework.sentinellimit.domain.LimitData;
 import com.aibank.framework.sentinellimit.domain.TransIdHolder;
 import com.aibank.framework.sentinellimit.enums.LimitType;
@@ -20,6 +21,8 @@ import com.alibaba.csp.sentinel.slots.system.SystemBlockException;
 import com.alibaba.csp.sentinel.slots.system.SystemRuleManager;
 import com.alibaba.csp.sentinel.spi.Spi;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
@@ -36,7 +39,25 @@ public class BlockLogSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
             LimitData limitData = getLimitData(e, resourceWrapper, obj, count);
             limitData.setTransId(TransIdHolder.getTransId());
             //打印日志
-            // RecordLog.warn("trigger limited : {}", limitData);
+            StringBuilder blockLog = new StringBuilder(32);
+            blockLog.append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(limitData.getTimestamp()))).append("|");
+            blockLog.append(TransIdHolder.getTransId()).append("|");
+            blockLog.append(LimitConstants.app).append("|");
+            blockLog.append(limitData.getResource()).append("|");
+            blockLog.append(limitData.getEntryType()).append("|");
+            blockLog.append(limitData.getLimitType()).append("|");
+            blockLog.append(limitData.getSystemLimitType()).append("|");
+            blockLog.append(limitData.getOverloadConfigValue()).append("|");
+            blockLog.append(limitData.getOverloadValue()).append("|");
+            blockLog.append(limitData.getLimitConfigValue()).append("|");
+            blockLog.append(limitData.getLimitValue()).append("|");
+            blockLog.append(limitData.getTotalQps()).append("|");
+            blockLog.append(limitData.getPassQps()).append("|");
+            blockLog.append(limitData.getBlockQps()).append("|");
+            blockLog.append(limitData.getTotalRequest()).append("|");
+            blockLog.append(limitData.getTotalPass()).append("|");
+            blockLog.append(limitData.getTotalBlock()).append("|");
+            RecordLog.warn(blockLog.toString());
 
             boolean offered = BLOCK_LOG_QUEUE.offer(limitData);
             if (!offered) {
