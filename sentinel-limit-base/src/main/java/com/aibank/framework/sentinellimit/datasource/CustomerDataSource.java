@@ -1,34 +1,28 @@
 
 package com.aibank.framework.sentinellimit.datasource;
 
-import cn.hutool.db.Db;
-import cn.hutool.db.Entity;
 import com.alibaba.csp.sentinel.concurrent.NamedThreadFactory;
 import com.alibaba.csp.sentinel.datasource.AbstractDataSource;
 import com.alibaba.csp.sentinel.datasource.Converter;
-import com.alibaba.csp.sentinel.util.AssertUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.sql.DataSource;
-import java.sql.SQLException;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 
-public class JdbcDataSource<E, T> extends AbstractDataSource<List<E>, T> {
-    private static Logger logger = LoggerFactory.getLogger(JdbcDataSource.class);
+public class CustomerDataSource<T> extends AbstractDataSource<T, T> {
+    private static Logger logger = LoggerFactory.getLogger(CustomerDataSource.class);
     private static final ScheduledExecutorService service = Executors.newScheduledThreadPool(1, new NamedThreadFactory("sentinel-datasource-auto-refresh-task", true));
     protected static long recommendRefreshMs = 3000;
 
-    private Supplier<List<E>> supplier;
+    private Supplier<T> supplier;
 
-    public JdbcDataSource(Supplier<List<E>> supplier, Converter<List<E>, T> parser) {
-        super(parser);
+    public CustomerDataSource(Supplier<T> supplier) {
+        super(source -> source);
         this.supplier = supplier;
         loadInitialConfig();
         startTimerService();
@@ -47,7 +41,7 @@ public class JdbcDataSource<E, T> extends AbstractDataSource<List<E>, T> {
     }
 
     @Override
-    public List<E> readSource() {
+    public T readSource() {
         return supplier.get();
     }
 

@@ -2,13 +2,12 @@ package com.aibank.framework.sentinellimit.service;
 
 import cn.hutool.core.bean.BeanUtil;
 import com.aibank.framework.sentinellimit.dao.*;
-import com.aibank.framework.sentinellimit.dao.entity.FlowRuleEntity;
-import com.aibank.framework.sentinellimit.dao.entity.SystemRuleEntity;
 import com.aibank.framework.sentinellimit.dao.impl.BlockInfoRecordMapperImpl;
 import com.aibank.framework.sentinellimit.dao.impl.FlowRuleMapperImpl;
 import com.aibank.framework.sentinellimit.dao.impl.SystemRuleMapperImpl;
-import com.aibank.framework.sentinellimit.datasource.JdbcDataSource;
+import com.aibank.framework.sentinellimit.datasource.CustomerDataSource;
 import com.aibank.framework.sentinellimit.domain.LimitConstants;
+import com.aibank.framework.sentinellimit.flow.FlowRuleSupplier;
 import com.aibank.framework.sentinellimit.rule.GlobalOverloadConfig;
 import com.aibank.framework.sentinellimit.rule.OverloadFlowRuleManager;
 import com.aibank.framework.sentinellimit.task.MetricPrintTask;
@@ -19,10 +18,10 @@ import com.alibaba.csp.sentinel.slots.block.flow.FlowRule;
 import com.alibaba.csp.sentinel.slots.block.flow.FlowRuleManager;
 import com.alibaba.csp.sentinel.slots.system.SystemRule;
 import com.alibaba.csp.sentinel.slots.system.SystemRuleManager;
+import com.alibaba.csp.sentinel.spi.SpiLoader;
 
 import javax.sql.DataSource;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -30,7 +29,7 @@ import java.util.stream.Collectors;
 
 public class DefaultFlowLimitLoad implements FlowLimitLoad {
 
-    private final ScheduledExecutorService executorService;
+    private ScheduledExecutorService executorService;
     private BlockInfoRecordMapper blockInfoRecordMapper;
     private FlowRuleMapper flowRuleMapper;
     private SystemRuleMapper systemRuleMapper;
@@ -58,7 +57,6 @@ public class DefaultFlowLimitLoad implements FlowLimitLoad {
         systemRule();
         // 启动定时任务
         scheduleTask();
-
     }
 
     protected void scheduleTask() {
@@ -72,28 +70,39 @@ public class DefaultFlowLimitLoad implements FlowLimitLoad {
 
 
     @Override
+    public List<FlowRuleSupplier> getFlowRuleSuppliers() {
+        return SpiLoader.of(FlowRuleSupplier.class).loadInstanceListSorted();
+    }
+
+    @Override
     public void flowRule() {
-        ReadableDataSource<List<FlowRuleEntity>, List<FlowRule>> readableDataSource = new JdbcDataSource<>(flowRuleMapper::getAllFlowRule, source -> source.stream().map(s -> {
-            FlowRule flowRule = new FlowRule();
-            BeanUtil.copyProperties(s, flowRule);
-            return flowRule;
-        }).collect(Collectors.toList()));
-        FlowRuleManager.register2Property(readableDataSource.getProperty());
+        HashMap<String, FlowRule> flowRuleMap = new HashMap<>();
+        CustomerDataSource<List<FlowRule>> customerDataSource = new CustomerDataSource<>(() -> {
+            getFlowRuleSuppliers().stream().forEach(s -> {
+                List<FlowRule> flowRule = s.getFlowRule();
+                flowRule.forEach(f -> flowRuleMap.putIfAbsent(f.getResource() + f.getLimitApp(), f));
+            });
+            return new ArrayList<>(flowRuleMap.values());
+        });
+        FlowRuleManager.register2Property(customerDataSource.getProperty());
     }
 
     @Override
     public void overloadFlowRule() {
-        ReadableDataSource<List<FlowRuleEntity>, List<FlowRule>> readableDataSource = new JdbcDataSource<>(flowRuleMapper::getAllOverloadFlowRule, source -> source.stream().map(s -> {
-            FlowRule flowRule = new FlowRule();
-            BeanUtil.copyProperties(s, flowRule);
-            return flowRule;
-        }).collect(Collectors.toList()));
+        ReadableDataSource<List<FlowRule>, List<FlowRule>> readableDataSource = new CustomerDataSource<>(() -> {
+            List<FlowRule> flowRules = flowRuleMapper.getAllOverloadFlowRule().stream().map(s -> {
+                FlowRule flowRule = new FlowRule();
+                BeanUtil.copyProperties(s, flowRule);
+                return flowRule;
+            }).collect(Collectors.toList());
+            return flowRules;
+        });
         OverloadFlowRuleManager.register2Property(readableDataSource.getProperty());
     }
 
     @Override
     public void systemRule() {
-        ReadableDataSource<List<SystemRuleEntity>, List<SystemRule>> readableDataSource = new JdbcDataSource<>(systemRuleMapper::getAllRule, source -> source.stream().map(s -> {
+        ReadableDataSource<List<SystemRule>, List<SystemRule>> readableDataSource = new CustomerDataSource<>(() -> systemRuleMapper.getAllRule().stream().map(s -> {
             SystemRule systemRule = new SystemRule();
             BeanUtil.copyProperties(s, systemRule);
             if (s.getSystemOverloadFlag()) {
@@ -116,5 +125,9 @@ public class DefaultFlowLimitLoad implements FlowLimitLoad {
 
     public void setSystemRuleMapper(SystemRuleMapper systemRuleMapper) {
         this.systemRuleMapper = systemRuleMapper;
+    }
+
+    public void setExecutorService(ScheduledExecutorService executorService) {
+        this.executorService = executorService;
     }
 }

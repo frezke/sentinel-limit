@@ -49,7 +49,7 @@ public class DatasourceFlowRulesTest {
         DefaultFlowLimitLoad flowLimitService = new DefaultFlowLimitLoad(dataSource, "237000");
         flowLimitService.init();
 
-        for (int i = 0; i < 20; i++) {
+        for (int i = 0; i < 10; i++) {
             new Thread(runnable).start();
         }
         new CountDownLatch(1).await();

@@ -11,6 +11,7 @@
     <modules>
         <module>sentinel-limit-base</module>
         <module>sentinel-limit-test</module>
+        <module>sentinel-limit-spring</module>
     </modules>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

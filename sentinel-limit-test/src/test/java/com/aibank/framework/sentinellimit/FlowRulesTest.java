@@ -99,7 +99,7 @@ public class FlowRulesTest {
         Entry entry = null;
         try {
             ContextUtil.enter("OPT", "237001");
-            entry = SphU.entry("HelloWorld", EntryType.IN);
+            entry = SphU.entry("HelloWorld", 7);
 
             if (entry != null) {
                 System.out.println(new Date() + " acquire success");
