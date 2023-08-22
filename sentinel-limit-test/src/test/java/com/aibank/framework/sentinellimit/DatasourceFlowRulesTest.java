@@ -71,6 +71,11 @@ public class DatasourceFlowRulesTest {
                 e.printStackTrace();
                 // throw new RuntimeException(e);
             }
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
         }
     };
 

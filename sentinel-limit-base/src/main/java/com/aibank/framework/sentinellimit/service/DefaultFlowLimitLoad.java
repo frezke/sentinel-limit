@@ -7,6 +7,7 @@ import com.aibank.framework.sentinellimit.dao.impl.FlowRuleMapperImpl;
 import com.aibank.framework.sentinellimit.dao.impl.SystemRuleMapperImpl;
 import com.aibank.framework.sentinellimit.datasource.CustomerDataSource;
 import com.aibank.framework.sentinellimit.domain.LimitConstants;
+import com.aibank.framework.sentinellimit.flow.DateSourceFlowRuleSupplier;
 import com.aibank.framework.sentinellimit.flow.FlowRuleSupplier;
 import com.aibank.framework.sentinellimit.rule.GlobalOverloadConfig;
 import com.aibank.framework.sentinellimit.rule.OverloadFlowRuleManager;
@@ -71,7 +72,10 @@ public class DefaultFlowLimitLoad implements FlowLimitLoad {
 
     @Override
     public List<FlowRuleSupplier> getFlowRuleSuppliers() {
-        return SpiLoader.of(FlowRuleSupplier.class).loadInstanceListSorted();
+        List<FlowRuleSupplier> flowRuleSuppliers = new ArrayList<>();
+        DateSourceFlowRuleSupplier supplier = new DateSourceFlowRuleSupplier(flowRuleMapper);
+        flowRuleSuppliers.add(supplier);
+        return flowRuleSuppliers;
     }
 
     @Override
@@ -82,7 +86,7 @@ public class DefaultFlowLimitLoad implements FlowLimitLoad {
                 List<FlowRule> flowRule = s.getFlowRule();
                 flowRule.forEach(f -> flowRuleMap.putIfAbsent(f.getResource() + f.getLimitApp(), f));
             });
-            return new ArrayList<>(flowRuleMap.values());
+            return flowRuleMap.values().stream().filter(flowRule -> flowRule.getCount() >= 0).collect(Collectors.toList());
         });
         FlowRuleManager.register2Property(customerDataSource.getProperty());
     }
