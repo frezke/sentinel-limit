@@ -9,6 +9,7 @@ import com.aibank.framework.sentinellimit.datasource.CustomerDataSource;
 import com.aibank.framework.sentinellimit.domain.LimitConstants;
 import com.aibank.framework.sentinellimit.flow.DateSourceFlowRuleSupplier;
 import com.aibank.framework.sentinellimit.flow.FlowRuleSupplier;
+import com.aibank.framework.sentinellimit.flow.RuntimeFlowRuleSupplier;
 import com.aibank.framework.sentinellimit.rule.GlobalOverloadConfig;
 import com.aibank.framework.sentinellimit.rule.OverloadFlowRuleManager;
 import com.aibank.framework.sentinellimit.task.MetricPrintTask;
@@ -19,7 +20,6 @@ import com.alibaba.csp.sentinel.slots.block.flow.FlowRule;
 import com.alibaba.csp.sentinel.slots.block.flow.FlowRuleManager;
 import com.alibaba.csp.sentinel.slots.system.SystemRule;
 import com.alibaba.csp.sentinel.slots.system.SystemRuleManager;
-import com.alibaba.csp.sentinel.spi.SpiLoader;
 
 import javax.sql.DataSource;
 import java.util.*;
@@ -73,18 +73,20 @@ public class DefaultFlowLimitLoad implements FlowLimitLoad {
     @Override
     public List<FlowRuleSupplier> getFlowRuleSuppliers() {
         List<FlowRuleSupplier> flowRuleSuppliers = new ArrayList<>();
-        DateSourceFlowRuleSupplier supplier = new DateSourceFlowRuleSupplier(flowRuleMapper);
+        FlowRuleSupplier supplier = new DateSourceFlowRuleSupplier(flowRuleMapper);
+        FlowRuleSupplier runtimeFlowRuleSupplier = new RuntimeFlowRuleSupplier();
         flowRuleSuppliers.add(supplier);
+        flowRuleSuppliers.add(runtimeFlowRuleSupplier);
         return flowRuleSuppliers;
     }
 
     @Override
     public void flowRule() {
-        HashMap<String, FlowRule> flowRuleMap = new HashMap<>();
         CustomerDataSource<List<FlowRule>> customerDataSource = new CustomerDataSource<>(() -> {
-            getFlowRuleSuppliers().stream().forEach(s -> {
+            HashMap<String, FlowRule> flowRuleMap = new HashMap<>();
+            getFlowRuleSuppliers().stream().sorted(Comparator.comparingInt(FlowRuleSupplier::getOrder).reversed()).forEach(s -> {
                 List<FlowRule> flowRule = s.getFlowRule();
-                flowRule.forEach(f -> flowRuleMap.putIfAbsent(f.getResource() + f.getLimitApp(), f));
+                flowRule.forEach(f -> flowRuleMap.putIfAbsent(RateLimitUtil.getRuleId(f), f));
             });
             return flowRuleMap.values().stream().filter(flowRule -> flowRule.getCount() >= 0).collect(Collectors.toList());
         });

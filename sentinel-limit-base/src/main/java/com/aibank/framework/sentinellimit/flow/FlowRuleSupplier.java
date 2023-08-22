@@ -6,4 +6,5 @@ import java.util.List;
 
 public interface FlowRuleSupplier {
     List<FlowRule> getFlowRule();
+    int getOrder();
 }

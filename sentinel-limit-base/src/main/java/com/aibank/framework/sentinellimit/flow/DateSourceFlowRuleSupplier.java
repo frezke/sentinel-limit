@@ -23,4 +23,9 @@ public class DateSourceFlowRuleSupplier implements FlowRuleSupplier {
         }).collect(Collectors.toList());
         return flowRules;
     }
+
+    @Override
+    public int getOrder() {
+        return 2000;
+    }
 }
